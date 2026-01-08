@@ -1,4 +1,6 @@
 #include <arpa/inet.h>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <netinet/in.h>
 #include <stdint.h>
@@ -39,8 +41,8 @@ void print_string_vector(std::vector<std::string> vector) {
   std::cout << "\nVector print end\n";
 }
 
-// I assume this modifies string internally? Doesn't look like it actually
-// since we are passing it by value, not by reference
+// It looks like it modifies strings internally, but doesnt
+// I guess since we are passing it by value, not by reference
 std::vector<std::string> tokenize_input(std::string string, std::string delim) {
   std::vector<std::string> tokens;
   std::string token{};
@@ -52,6 +54,39 @@ std::vector<std::string> tokenize_input(std::string string, std::string delim) {
   }
   tokens.push_back(string);
   return tokens;
+}
+
+// Takes const path reference
+// Loads a file into memory
+// Opens up a filestream using path -- binary?
+// If we failed to open a file, throw error
+// Seek to end
+// Get current cursor position (how many bytes are in the file)
+// Seek back to beginning
+// Allocate buffer based on file size
+// Read file data into buffer.data()
+//      buffer.data() is a uint8_t *
+//      std::ifstream::read expects a char *
+//      So we need to reinterpret_cast to char *, taking buffer.data()
+//      Then we can successfully read into buffer.data
+//
+//      Basically, cast buffer.data() into char *, then read size bytes into it
+// Return buffer
+std::vector<uint8_t> load_file(const std::filesystem::path &path) {
+  std::ifstream file(path, std::ios::binary);
+
+  if (!file) {
+    throw std::runtime_error("failed to open file");
+  }
+
+  file.seekg(0, std::ios::end);
+  std::size_t size = file.tellg();
+  file.seekg(0, std::ios::beg);
+
+  std::vector<uint8_t> buffer(size);
+  file.read(reinterpret_cast<char *>(buffer.data()), size);
+
+  return buffer;
 }
 
 int main(void) {
@@ -147,7 +182,7 @@ int main(void) {
     std::cout << "End of tokens of request line\n";
 
     std::string method = request_line[0];
-    std::string path = request_line[1];
+    std::string request_path = request_line[1];
     std::string version = request_line[2];
 
     if (method != "GET") {
@@ -156,19 +191,84 @@ int main(void) {
     if (version != "HTTP/1.1" && version != "HTTP/1.0") {
       std::cout << "Respond with 505 - HTTP Version Not Supported\n";
     }
-    if (path == "/") {
+    if (request_path == "/") {
       std::cout << "Path is just /, swapping to /index.html\n";
-      path = "/index.html";
+      request_path = "/index.html";
+    }
+    if (request_path.empty() || request_path[0] != '/') {
+      std::cout << "Respond with 400 - Bad Request\n";
     }
 
     // Adjust path based on file structure
-    std::string doc_root = "./files";
-    path.insert(0, doc_root);
-    std::cout << "Updated path:";
-    std::cout << path << '\n';
+    // std::string doc_root = "./files";
+    // path.insert(0, doc_root);
+    // std::cout << "Updated path:";
+    // std::cout << path << '\n';
 
     // If file exists, open it and send response
     // If file does not exist, send 404
+
+    // Convert string request to file path -- also remove the leading '/'
+    std::filesystem::path file_path{request_path.substr(1)};
+    std::cout << "We have reached the file_path constructor\n";
+    std::cout << file_path << '\n';
+
+    // Current pwd
+    // std::cout << "CWD: " << std::filesystem::current_path() << "\n";
+
+    // What we want
+    std::filesystem::path doc_root{std::filesystem::current_path() /
+                                   "../files"};
+    doc_root = std::filesystem::weakly_canonical(doc_root);
+    std::cout << "doc_root: " << doc_root << "\n";
+
+    // Normalzed path
+    // std::filesystem::path normalized_path{
+    //     std::filesystem::weakly_canonical(want_path)};
+    // std::cout << "Normalized: " << normalized_path << "\n";
+
+    // Get full path
+    std::filesystem::path full_path{doc_root / file_path};
+    std::cout << "Final path: " << full_path << "\n";
+
+    // Normalize full path
+    full_path = std::filesystem::weakly_canonical(full_path);
+
+    // Validate path
+    if (full_path.string().find(doc_root.string()) != 0) {
+      std::cout << "Respond with 403 - Forbidden Access\n";
+    }
+
+    // Check if file exists and is a regular file
+    if (!std::filesystem::exists(full_path) ||
+        !std::filesystem::is_regular_file(full_path)) {
+      std::cout << "Respond with 404 - does not exist or not regular file\n";
+    }
+
+    // If file exists open it -- load the entire file into memory
+    std::vector<uint8_t> file_buffer{load_file(full_path)};
+    if (!file_buffer.empty()) {
+      std::cout << "I think we have loaded it in\n";
+    } else {
+      std::cout << "file buffer is empty\n";
+    }
+
+    // Construct the HTTP response
+    //
+    // Success
+    // HTTP/1.1 200 OK\r\n
+    // Content-Length: <bytes>\r\n
+    // Content-Type: text/html\r\n
+    // \r\n
+    // <file bytes>
+    //
+    // Fail
+    // HTTP/1.1 404 Not Found\r\n
+    // Content-Length: 0\r\n
+    // \r\n
+    //
+    // Send the HTTP response
+    // Use send
 
     // Tokenizing based on spaces
     // std::vector<std::string> tokens = tokenize_input(request, " ");
