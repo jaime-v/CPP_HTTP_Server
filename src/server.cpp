@@ -15,7 +15,7 @@
 #define ADDRESS "0.0.0.0"
 #define PORT 8000
 #define LISTEN_BACKLOG 100
-#define BUF_SIZE 256
+#define BUF_SIZE 4096
 
 void print_byte_vector(std::vector<uint8_t> vector) {
   std::cout << "\nVector print begin\n";
@@ -90,7 +90,7 @@ std::vector<uint8_t> load_file(const std::filesystem::path &path) {
 }
 
 int main(void) {
-  struct sockaddr_in addr {};
+  struct sockaddr_in addr{};
   socklen_t addr_len{sizeof(addr)};
   int socket_fd{-1};
   int client_fd{-1};
@@ -105,7 +105,7 @@ int main(void) {
   // Set up address
   memset(&addr, 0, sizeof(addr));
   addr.sin_family = AF_INET;
-  addr.sin_port = PORT;
+  addr.sin_port = htons(PORT);
   if (inet_pton(AF_INET, ADDRESS, &addr.sin_addr.s_addr) == -1) {
     std::cerr << "inet_pton error\n";
   }
@@ -122,6 +122,7 @@ int main(void) {
 
   // Forever accept loop
   for (;;) {
+    std::cout << "\n\n\n~~~~waiting for client~~~~\n\n\n";
     client_fd = accept(socket_fd, NULL, NULL);
     if (client_fd == -1) {
       std::cerr << "accept error\n";
@@ -184,6 +185,25 @@ int main(void) {
     std::string method = request_line[0];
     std::string request_path = request_line[1];
     std::string version = request_line[2];
+
+    // Tokenizing based on spaces
+    // std::vector<std::string> tokens = tokenize_input(request, " ");
+    // print_string_vector(tokens);
+
+    // Tokens should now contain all tokens
+    // We create tokens vector, create a null token, and a delimiter we
+    // want Start at pos 0 We find delimiter and as long as its not
+    // equal to npos (no position?) We create a substring from pos 0 to
+    // the delimiter We then push that substring onto the vector Then we
+    // erase the token and delimiter from buffer Then we repeat the
+    // cycle until our pos hits npos Once we find npos, that means the
+    // delimiter was not found Then buffer only has the last token So we
+    // add it to tokens and yeah
+    // std::cout << "Displaying tokens\n";
+    // for (size_t i{}; i < tokens.size(); ++i) {
+    //   std::cout << tokens[i] << "\n";
+    // }
+    // std::cout << "End of tokens\n";
 
     if (method != "GET") {
       std::cout << "Respond with 405 - Method Not Allowed\n";
@@ -254,49 +274,76 @@ int main(void) {
     }
 
     // Construct the HTTP response
-    //
+    // -- How do we make this response?
+    // -- Just hardcode i guess
+    // -- For now at least
+    // -- Maybe eventually we will add different paths based on the request
+    // method
+    // -- But for now, just hardcode the GET and 200 / 404
+
     // Success
     // HTTP/1.1 200 OK\r\n
     // Content-Length: <bytes>\r\n
     // Content-Type: text/html\r\n
     // \r\n
     // <file bytes>
-    //
+    std::string success_response = "HTTP/1.1 200 OK\r\n"
+                                   "Content-Length: " +
+                                   std::to_string(file_buffer.size()) +
+                                   "\r\n"
+                                   "Content-Type: text/html\r\n"
+                                   "\r\n";
+    std::cout << "Created success_response:\n";
+    std::cout << success_response;
+
     // Fail
     // HTTP/1.1 404 Not Found\r\n
     // Content-Length: 0\r\n
     // \r\n
+    // <body>
+    // body is just text, so we can add it on to the response
     //
+    // std::string fail_response = "HTTP/1.1 404 Not Found\r\n"
+    //                             "Content-Length: 0\r\n"
+    //                             "\r\n"
+    //                             "404 Not Found\n";
+    // std::cout << "Created fail_response:\n";
+    // std::cout << fail_response;
+
     // Send the HTTP response
     // Use send
+    // Since we want to send the uint8_t vector directly after the response, we
+    // can just use 2 sends here like we did with the Chat Server (which sent
+    // the header then the payload)
 
-    // Tokenizing based on spaces
-    // std::vector<std::string> tokens = tokenize_input(request, " ");
-    // print_string_vector(tokens);
-
-    // Tokens should now contain all tokens
-    // We create tokens vector, create a null token, and a delimiter we
-    // want Start at pos 0 We find delimiter and as long as its not
-    // equal to npos (no position?) We create a substring from pos 0 to
-    // the delimiter We then push that substring onto the vector Then we
-    // erase the token and delimiter from buffer Then we repeat the
-    // cycle until our pos hits npos Once we find npos, that means the
-    // delimiter was not found Then buffer only has the last token So we
-    // add it to tokens and yeah
-    // std::cout << "Displaying tokens\n";
-    // for (size_t i{}; i < tokens.size(); ++i) {
-    //   std::cout << tokens[i] << "\n";
-    // }
-    // std::cout << "End of tokens\n";
-
-    // Process request
-    // Send response
-    // Handle errors
-
-    if (send(client_fd, "Hello World!\n", strlen("Hello World!\n"), 0) == -1) {
-      std::cerr << "send error\n";
+    // Send success response header
+    if (send(client_fd, success_response.data(), success_response.size(), 0) ==
+        -1) {
+      std::cerr << "send success response header error\n";
+    } else {
+      std::cout << "sent success response header to client\n";
     }
-    std::cout << "Sent message to client\n";
+
+    // Send success response body
+    if (send(client_fd, file_buffer.data(), file_buffer.size(), 0) == -1) {
+      std::cerr << "send response body error\n";
+    } else {
+      std::cout << "sent response body to client\n";
+    }
+
+    // Send fail response (header and body)
+    // if (send(client_fd, fail_response.data(), fail_response.size(), 0) == -1)
+    // {
+    //   std::cerr << "send fail response header error\n";
+    // } else {
+    //   std::cout << "sent fail response header to client\n";
+    // }
+
+    // if (send(client_fd, "Hello World!\n", strlen("Hello World!\n"), 0) == -1)
+    // {
+    //   std::cerr << "send error\n";
+    // }
+    // std::cout << "Sent message to client\n";
 
     // Clean up
     if (close(client_fd) == -1) {

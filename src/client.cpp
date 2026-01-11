@@ -10,7 +10,7 @@
 #define ADDRESS "127.0.0.1"
 #define PORT 8000
 #define LISTEN_BACKLOG 100
-#define BUF_SIZE 256
+#define BUF_SIZE 4096
 
 void print_vector(std::vector<uint8_t> vector) {
   std::cout << "\nVector print begin\n";
@@ -45,7 +45,7 @@ int main(void) {
   // Set up address
   memset(&addr, 0, sizeof(addr));
   addr.sin_family = AF_INET;
-  addr.sin_port = PORT;
+  addr.sin_port = htons(PORT);
   if (inet_pton(AF_INET, ADDRESS, &addr.sin_addr.s_addr) == -1) {
     std::cerr << "inet_pton error\n";
   }
@@ -130,6 +130,7 @@ int main(void) {
            recv(socket_fd, read_buffer.data(), read_buffer.size(), 0)) == -1) {
     std::cerr << "recv error\n";
   }
-  std::cout << "Received from server\n";
+  std::cout << read_buffer.data() << "\n";
+  std::cout << "\n\nReceived from server\n";
   return 0;
 }
