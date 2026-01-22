@@ -10,6 +10,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(server
     src/server.cpp
+    src/network_io.cpp
+    src/socket_setup.cpp
+    src/create_response.cpp
+    src/parse_request.cpp
+    src/load_file.cpp
+    src/path_building.cpp
 )
 
 add_executable(client
@@ -19,13 +25,13 @@ add_executable(client
 target_include_directories(
     server
     PRIVATE
-    include
+    ${PROJECT_SOURCE_DIR}/include
 )
 
 target_include_directories(
     client
     PRIVATE
-    include
+    ${PROJECT_SOURCE_DIR}/include
 )
 
 
