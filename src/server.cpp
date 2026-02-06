@@ -32,13 +32,14 @@ int main(void) {
   //    Send response
 
   // Setup server socket and address
-  server_state server{server_setup()};
+  // server_state server{server_setup()};
+  ServerSocket server(PORT);
 
   // Forever accept loop, accept_connection blocks
   for (;;) {
-    client_connection client{accept_connection(server.fd)};
+    int client{server.accept_client()};
     std::vector<uint8_t> request_buffer(BUF_SIZE);
-    ssize_t recv_result{recv_request(client.fd, request_buffer)};
+    ssize_t recv_result{recv_request(client, request_buffer)};
     if (recv_result == 0) {
       std::cout << "Client closed connection\n";
     } else if (recv_result < 0) {
@@ -60,13 +61,13 @@ int main(void) {
     std::vector<uint8_t> file_buffer{load_file(file_path_result.file_path)};
     std::string mime_type{get_mime_type(request)};
     response = build_success_response(mime_type, file_buffer);
-    ssize_t send_result{send_response(client.fd, response)};
+    ssize_t send_result{send_response(client, response)};
     if (send_result == 0) {
       std::cout << "Client closed connection\n";
     } else if (send_result < 0) {
       std::cerr << "send_response had an error\n";
     }
-    if (close(client.fd) == -1) {
+    if (close(client) == -1) {
       std::cerr << "close client had an error\n";
     }
   }

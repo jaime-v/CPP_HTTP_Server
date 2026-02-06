@@ -4,26 +4,19 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 
-struct server_address {
-  sockaddr_in addr{};
-  socklen_t addr_len{sizeof(addr)};
-};
+class ServerSocket {
+public:
+  explicit ServerSocket(int port);
+  ServerSocket(const ServerSocket &) = delete;
+  ServerSocket &operator=(const ServerSocket &) = delete;
+  int accept_client();
+  ~ServerSocket();
 
-struct client_connection {
-  int fd{-1};
-  sockaddr_in addr{};
-  socklen_t addr_len{sizeof(addr)};
-};
+private:
+  int fd_{-1};
 
-struct server_state {
-  int fd{-1};
-  server_address addr{};
+  void create_socket();
+  void bind_and_listen(int port);
 };
-
-int create_socket();
-server_address create_and_setup_address();
-void bind_and_listen(int socket_fd, server_address server_addr);
-client_connection accept_connection(int socket_fd);
-server_state server_setup();
 
 #endif

@@ -1,68 +1,60 @@
 #include <cstdlib>
 #include <iostream>
+#include <stdexcept>
+#include <unistd.h>
 
 #include "socket_setup.hpp"
 
 #define ADDRESS "0.0.0.0"
-#define PORT 8000
 #define LISTEN_BACKLOG 100
 
-int create_socket(void) {
-  int socket_fd{socket(AF_INET, SOCK_STREAM, 0)};
-  if (socket_fd == -1) {
-    std::cerr << "socket error\n";
-    std::exit(EXIT_FAILURE);
-  }
-  return socket_fd;
+ServerSocket::ServerSocket(int port) {
+  create_socket();
+  bind_and_listen(port);
+  // Just one line, can probably just throw in the setup functions right away
+  // instead of putting them all into a helper
 }
 
-server_address create_and_setup_address(void) {
-  server_address server_addr{};
-
-  // memset(&server_address.addr, 0, server_address.addr_len);
-  // ^ memset is redundant now because of brace initialization setting
-  // everything to 0
-  server_addr.addr.sin_family = AF_INET;
-  server_addr.addr.sin_port = htons(PORT);
-  if (inet_pton(AF_INET, ADDRESS, &server_addr.addr.sin_addr.s_addr) == -1) {
-    std::cerr << "inet_pton error\n";
-    std::exit(EXIT_FAILURE);
-  }
-  // server_address.addr.sin_addr.s_addr = htonl(INADDR_ANY);
-  // ^ this is a simpler version instead of using inet_pton
-  return server_addr;
-}
-
-void bind_and_listen(int socket_fd, server_address server_addr) {
-  // Bind socket to address
-  if (bind(socket_fd, reinterpret_cast<sockaddr *>(&server_addr.addr),
-           server_addr.addr_len) == -1) {
-    std::cerr << "bind error\n";
-    std::exit(EXIT_FAILURE);
-  }
-
-  // Make socket listen
-  if (listen(socket_fd, LISTEN_BACKLOG) == -1) {
-    std::cerr << "listen error\n";
-    std::exit(EXIT_FAILURE);
-  }
-}
-
-client_connection accept_connection(int socket_fd) {
-  client_connection client{};
-  client.fd = accept(socket_fd, reinterpret_cast<sockaddr *>(&client.addr),
-                     &client.addr_len);
-  if (client.fd == -1) {
+int ServerSocket::accept_client() {
+  int client{accept(fd_, nullptr, nullptr)};
+  if (client == -1) {
     std::cerr << "accept error\n";
-    std::exit(EXIT_FAILURE);
+    throw new std::runtime_error("Accept failed");
   }
   return client;
 }
 
-server_state server_setup() {
-  server_state state{};
-  state.fd = create_socket();
-  state.addr = create_and_setup_address();
-  bind_and_listen(state.fd, state.addr);
-  return state;
+ServerSocket::~ServerSocket() { close(fd_); }
+
+void ServerSocket::create_socket() {
+  fd_ = socket(AF_INET, SOCK_STREAM, 0);
+  if (fd_ == -1) {
+    std::cerr << "socket error\n";
+    throw new std::runtime_error("Socket failed");
+  }
+}
+
+void ServerSocket::bind_and_listen(int port) {
+  sockaddr_in server_addr{};
+  server_addr.sin_family = AF_INET;
+  server_addr.sin_port = htons(port);
+  if (inet_pton(AF_INET, ADDRESS, &server_addr.sin_addr.s_addr) == -1) {
+    std::cerr << "inet_pton error\n";
+    throw new std::runtime_error("inet_pton failed");
+  }
+  // server_address.addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  // ^ this is a simpler version instead of using inet_pton
+
+  // Bind socket to address
+  if (bind(fd_, reinterpret_cast<sockaddr *>(&server_addr),
+           sizeof(server_addr)) == -1) {
+    std::cerr << "bind error\n";
+    throw new std::runtime_error("bind failed");
+  }
+
+  // Make socket listen
+  if (listen(fd_, LISTEN_BACKLOG) == -1) {
+    std::cerr << "listen error\n";
+    throw new std::runtime_error("listen failed");
+  }
 }

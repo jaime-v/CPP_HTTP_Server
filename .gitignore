@@ -2,3 +2,4 @@ build/
 devlog.md
 todo.md
 .DS_Store
+.cache/
