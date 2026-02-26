@@ -51,11 +51,23 @@ int main(void) {
     if (!result.ok) {
       // Request isn't valid, so send response for 400 - bad request
       response = build_error_response(result.status_code);
+      ssize_t send_result{send_response(client, response)};
+      if (send_result == 0) {
+        std::cout << "Client closed connection\n";
+      } else if (send_result < 0) {
+        std::cerr << "send_response had an error\n";
+      }
       continue;
     }
     path_result file_path_result{build_path(request)};
     if (!file_path_result.ok) {
       response = build_error_response(file_path_result.status_code);
+      ssize_t send_result{send_response(client, response)};
+      if (send_result == 0) {
+        std::cout << "Client closed connection\n";
+      } else if (send_result < 0) {
+        std::cerr << "send_response had an error\n";
+      }
       continue;
     }
     std::vector<uint8_t> file_buffer{load_file(file_path_result.file_path)};

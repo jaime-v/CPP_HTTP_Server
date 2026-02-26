@@ -1,8 +1,5 @@
 # Minimal HTTP Server (C++)
 
-This project is a multi-client chat server implemented in C using Linux epoll for scalable event-driven I/O.  
-It supports a custom binary messaging protocol, partial read/write handling, and stress testing with fuzzing clients.
-
 This project is a minimal HTTP/1.0-1.1 server implemented in C++ using TCP sockets.
 It handles HTTP GET requests, MIME type detection, and static file serving.
 
@@ -27,4 +24,17 @@ cd build
 ./server
 ```
 
+## Testing
+
+```
+Browser
+Open http://localhost:8000
+
+Terminal
+curl -iv http://localhost:8000/index.html
+
+Phone
+ifconfig | grep inet
+http://<ip>:8000
+```
 
