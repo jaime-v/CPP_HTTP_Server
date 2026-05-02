@@ -3,7 +3,7 @@
 #include "parse_request.hpp"
 
 // Static keyword here?? because its global
-std::unordered_map<std::string, std::string> mime_map = {
+static const std::unordered_map<std::string, std::string> mime_map = {
     {"html", "text/html"},
     {"css", "text/css"},
     {"js", "text/js"},
@@ -35,7 +35,17 @@ http_request parse_request(const std::vector<uint8_t> &buffer) {
   http_request request{};
   std::string request_string{buffer.begin(), buffer.end()};
   std::vector<std::string> lines{tokenize_string(request_string, "\r\n")};
+
+  // Check to make sure lines has something
+  if (lines.empty()) {
+    return request;
+  }
+
   std::vector<std::string> request_line{tokenize_string(lines[0], " ")};
+
+  if (request_line.size() < 3) {
+    return request;
+  }
 
   // Should probably add checks here -- what if we don't get 3 tokens and we try
   // to access?
@@ -77,6 +87,22 @@ std::string get_mime_type(const http_request &request) {
   std::vector<std::string> req_chunk =
       tokenize_string(request.request_path, ".");
   std::string file_extension = req_chunk.back();
-  std::string mime_type{mime_map[file_extension]};
+
+  // This is a gross tolower function i found on stack overflow
+  std::transform(file_extension.begin(), file_extension.end(),
+                 file_extension.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+
+  std::string mime_type{};
+  // Mime map should use find (adapted this from cppreference) when map is const
+  if (auto search = mime_map.find(file_extension); search != mime_map.end()) {
+    // If we found the file extension as a key, we get the value
+    mime_type = search->second;
+  } else {
+    // Otherwise, we default to application/octet-stream and return 415
+    // for Unsupported Media Type
+    mime_type = "application/octet-stream";
+  }
+
   return mime_type;
 }
