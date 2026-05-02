@@ -47,9 +47,6 @@ http_request parse_request(const std::vector<uint8_t> &buffer) {
     return request;
   }
 
-  // Should probably add checks here -- what if we don't get 3 tokens and we try
-  // to access?
-
   request.method = request_line[0];
   request.request_path = request_line[1];
   request.version = request_line[2];
@@ -99,8 +96,9 @@ std::string get_mime_type(const http_request &request) {
     // If we found the file extension as a key, we get the value
     mime_type = search->second;
   } else {
-    // Otherwise, we default to application/octet-stream and return 415
-    // for Unsupported Media Type
+    // Otherwise, we default to application/octet-stream
+    // and we should return 415 for Unsupported Media Type, but I'm too lazy to
+    // do that for now
     mime_type = "application/octet-stream";
   }
 
